@@ -1,12 +1,19 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
-import Map, { Source, Layer, Popup, type MapMouseEvent } from 'react-map-gl/mapbox'; // <--- Import corrigido
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+// IMPORTANTE: Mantenha o import assim para evitar erro de versão
+import Map, { Source, Layer, Popup, type MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { School, Tractor, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
 
-// --- ATUALIZAÇÃO 1: FILTROS EM PORTUGUÊS ---
+// --- CONFIGURAÇÕES CHUMBADAS (HARDCODED) ---
+// 1. COLE SEU TOKEN AQUI (Começa com pk.eyJ...)
+const MAPBOX_TOKEN = "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw"; // <--- TROQUE PELO SEU TOKEN REAL SE O MAPA NÃO CARREGAR
+
+// 2. URL DO BACKEND FIXA
+const API_URL = "http://localhost:8000";
+
 const layers = {
   school: {
     id: 'school-point',
@@ -17,7 +24,6 @@ const layers = {
       'circle-stroke-width': 2,
       'circle-stroke-color': '#ffffff'
     },
-    // O Mapbox vai procurar onde "tipo" é igual a "escola"
     filter: ['==', 'tipo', 'escola'] 
   },
   farmer: {
@@ -29,7 +35,6 @@ const layers = {
       'circle-stroke-width': 1,
       'circle-stroke-color': '#ffffff'
     },
-    // O Mapbox vai procurar onde "tipo" é igual a "agricultor"
     filter: ['==', 'tipo', 'agricultor']
   },
   route: {
@@ -44,7 +49,6 @@ const layers = {
 };
 
 type MapProps = {
-  // --- ATUALIZAÇÃO 2: IDs AGORA SÃO STRINGS ---
   selectedSchoolId?: string | null;
   matchedFarmerId?: string | null;
   onSchoolClick?: (id: string) => void;
@@ -59,14 +63,18 @@ export default function MapComponent({ selectedSchoolId, matchedFarmerId, onScho
 
   const [geoData, setGeoData] = useState<any>(null);
   const [popupInfo, setPopupInfo] = useState<any>(null);
+  const [cursor, setCursor] = useState<string>('auto');
 
+  // FETCH DOS DADOS (Com Logs de Debug)
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await axios.get(`http://localhost:8000/geojson/enriched`); // Ou a URL que você usou
+        console.log("MapComponent: Buscando dados em " + API_URL);
+        const res = await axios.get(`${API_URL}/geojson/enriched`);
+        console.log("MapComponent: Dados recebidos!", res.data);
         setGeoData(res.data);
       } catch (error) {
-        console.error("Erro no mapa:", error);
+        console.error("ERRO FATAL NO MAPA: O Backend está rodando? ", error);
       }
     }
     loadData();
@@ -75,7 +83,6 @@ export default function MapComponent({ selectedSchoolId, matchedFarmerId, onScho
   const routeGeoJSON = useMemo(() => {
     if (!selectedSchoolId || !matchedFarmerId || !geoData) return null;
 
-    // Comparação de Strings agora
     const school = geoData.features.find((f: any) => f.properties.id === selectedSchoolId);
     const farmer = geoData.features.find((f: any) => f.properties.id === matchedFarmerId);
 
@@ -90,43 +97,57 @@ export default function MapComponent({ selectedSchoolId, matchedFarmerId, onScho
     };
   }, [selectedSchoolId, matchedFarmerId, geoData]);
 
-  const handleMapClick = (event: MapMouseEvent) => {
+  const handleMapClick = useCallback((event: MapMouseEvent) => {
     const feature = event.features?.[0];
     
     if (feature) {
       const props = feature.properties as any;
-      const geometry = feature.geometry as any; // Cast forçado para evitar erro de TS
+      const geometry = feature.geometry as any; 
       const [lng, lat] = geometry.coordinates;
+
+      let produtosFormatados = props.produtos_disponiveis;
+      if (typeof props.produtos_disponiveis === 'string' && props.produtos_disponiveis.startsWith('[')) {
+          try {
+            produtosFormatados = JSON.parse(props.produtos_disponiveis).join(', ');
+          } catch (e) {
+            produtosFormatados = props.produtos_disponiveis;
+          }
+      }
 
       setPopupInfo({
         longitude: lng,
         latitude: lat,
-        ...props
+        ...props,
+        produtos_exibicao: produtosFormatados
       });
 
-      // --- ATUALIZAÇÃO 3: USA PROPRIEDADE 'tipo' ---
       if (props.tipo === 'escola' && onSchoolClick) {
         onSchoolClick(props.id);
       }
     } else {
       setPopupInfo(null);
     }
-  };
+  }, [onSchoolClick]);
+
+  const onMouseEnter = useCallback(() => setCursor('pointer'), []);
+  const onMouseLeave = useCallback(() => setCursor('auto'), []);
 
   return (
     <div className="w-full h-full relative">
       <Map
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
+        cursor={cursor}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/light-v11"
-        mapboxAccessToken={"pk.eyJ1IjoiZ3VpbGVyIiwiYSI6ImNtaGhjZ3licDAyMTgyaW84NXpocjU1YWoifQ.ZZ2X0f82bfAqc99B4-qHKA"}
+        mapboxAccessToken={MAPBOX_TOKEN} // <--- TOKEN CHUMBADO AQUI
         interactiveLayerIds={['school-point', 'farmer-point']}
         onClick={handleMapClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         {geoData && (
           <Source id="main-data" type="geojson" data={geoData}>
-            {/* Filtros atualizados no objeto layers acima */}
             <Layer {...layers.school as any} /> 
             <Layer {...layers.farmer as any} />
           </Source>
@@ -144,13 +165,13 @@ export default function MapComponent({ selectedSchoolId, matchedFarmerId, onScho
             latitude={popupInfo.latitude}
             anchor="bottom"
             onClose={() => setPopupInfo(null)}
-            closeButton={false}
+            closeButton={true}
+            closeOnClick={false}
           >
-            <div className="p-3 min-w-[200px]">
+            <div className="p-2 min-w-[200px]">
               <div className="flex items-center gap-2 font-bold text-slate-800 mb-1">
-                {/* Verifica 'tipo' em vez de 'type' */}
                 {popupInfo.tipo === 'escola' ? <School className="w-4 h-4 text-blue-600"/> : <Tractor className="w-4 h-4 text-green-600"/>}
-                {popupInfo.name}
+                <span className="text-sm">{popupInfo.name}</span>
               </div>
               
               <div className="text-xs text-slate-500 border-t pt-2 mt-1">
@@ -162,13 +183,7 @@ export default function MapComponent({ selectedSchoolId, matchedFarmerId, onScho
                 ) : (
                   <>
                      <p className="font-semibold text-slate-700">Disponível:</p>
-                     {/* O JSON retorna array, o mapbox flattena para string as vezes, cuidado visual */}
-                     <p className="truncate max-w-[180px]">{popupInfo.produtos_disponiveis}</p> 
-                     
-                     <div className="mt-2 flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full w-fit">
-                        <CheckCircle2 size={12} />
-                        <span className="font-bold text-[10px]">DAP ATIVA</span>
-                     </div>
+                     <p className="leading-snug">{popupInfo.produtos_exibicao || popupInfo.produtos_disponiveis}</p>
                   </>
                 )}
               </div>

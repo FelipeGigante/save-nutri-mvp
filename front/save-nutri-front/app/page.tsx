@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react"
 import { Sidebar } from "@/components/Sidebar"
 import MapComponent from "@/components/MapComponent" 
-import type { School, Farmer, MatchResponse } from "@/types" // Se tiver tipos definidos, se não use any por enquanto
+import type { MatchResponse } from "@/types"
 import { Loader2 } from "lucide-react"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+// --- URL CHUMBADA (HARDCODED) ---
+const API_BASE_URL = "http://localhost:8000";
 
 export default function Page() {
-  // IDs agora são STRING porque o JSON manda "school_001"
   const [schools, setSchools] = useState<any[]>([])
   const [farmers, setFarmers] = useState<any[]>([])
   const [selectedSchool, setSelectedSchool] = useState<any | null>(null)
@@ -24,12 +24,14 @@ export default function Page() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/geojson/enriched`) // URL que retorna seu JSON
-        if (!response.ok) throw new Error("Failed to fetch data")
+        console.log("Page: Buscando dados...");
+        const response = await fetch(`${API_BASE_URL}/geojson/enriched`)
+        
+        if (!response.ok) throw new Error("Falha ao buscar dados")
+        
         const data = await response.json()
+        console.log("Page: Dados carregados!", data.features.length, "items");
 
-        // --- CORREÇÃO AQUI: FILTRAR POR 'tipo' ---
-        // O JSON tem "tipo": "escola" e "tipo": "agricultor"
         const schoolsData = data.features.filter((f: any) => f.properties.tipo === 'escola')
         const farmersData = data.features.filter((f: any) => f.properties.tipo === 'agricultor')
 
@@ -37,7 +39,7 @@ export default function Page() {
         setFarmers(farmersData)
       } catch (err) {
         console.error(err)
-        setError("Erro ao carregar dados.")
+        setError("Erro ao conectar com http://localhost:8000. O Python está rodando?")
       } finally {
         setIsLoading(false)
       }
@@ -46,21 +48,23 @@ export default function Page() {
   }, [])
 
   const handleSchoolSelect = (school: any) => {
-    setSelectedSchool(school)
     setMatchResult(null)
-    setMatchedFarmerId(null)
+    setMatchedFarmerId(null) 
+    setSelectedSchool(school)
   }
 
-  // Recebe ID string do mapa
   const handleMapSchoolClick = (schoolId: string) => {
     const schoolFound = schools.find(s => s.properties.id === schoolId)
-    if (schoolFound) handleSchoolSelect(schoolFound)
+    if (schoolFound) {
+      if (selectedSchool?.properties.id !== schoolId) {
+          handleSchoolSelect(schoolFound)
+      }
+    }
   }
 
   const handleFindProducers = async (schoolId: string) => {
     setIsLoadingMatch(true)
     setTimeout(() => {
-        // Simulação de Match
          const mockMatch = {
             school_id: schoolId,
             matches: [
@@ -69,12 +73,13 @@ export default function Page() {
          }
          setMatchResult(mockMatch as any)
          
-         // --- Pega o primeiro agricultor da lista que você carregou ---
-         if (farmers.length > 0) {
-             setMatchedFarmerId(farmers[0].properties.id) 
+         const randomFarmer = farmers.length > 0 ? farmers[Math.floor(Math.random() * Math.min(5, farmers.length))] : null;
+         
+         if (randomFarmer) {
+             setMatchedFarmerId(randomFarmer.properties.id) 
          }
          setIsLoadingMatch(false)
-    }, 1000)
+    }, 800)
   }
 
   const handleCloseMatch = () => {
@@ -82,8 +87,8 @@ export default function Page() {
     setMatchedFarmerId(null)
   }
 
-  if (isLoading) return <div className="h-screen w-screen flex items-center justify-center"><Loader2 className="animate-spin"/></div>
-  if (error) return <div>{error}</div>
+  if (isLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-emerald-600"/></div>
+  if (error) return <div className="p-10 text-red-500 font-bold">{error}</div>
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-100">
@@ -101,7 +106,7 @@ export default function Page() {
                 schools={schools}
                 selectedSchool={selectedSchool}
                 onSchoolSelect={handleSchoolSelect}
-                onFindProducers={(id) => handleFindProducers(id)} // ID já é string agora
+                onFindProducers={(id) => handleFindProducers(id)}
                 matchResult={matchResult}
                 onCloseMatch={handleCloseMatch}
                 isLoadingMatch={isLoadingMatch}
