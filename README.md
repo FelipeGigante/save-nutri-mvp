@@ -4,7 +4,7 @@
 
 ## 📋 Sobre o Projeto
 
-EcoMerenda é um MVP desenvolvido para hackathons que resolve um problema real: facilitar a conexão entre escolas públicas e agricultores familiares, garantindo o cumprimento da Lei 11.947/2009 (PNAE) que exige que 30% do orçamento da merenda escolar seja destinado à compra de produtos da agricultura familiar local.
+SaveNutri é um MVP desenvolvido para hackathons que resolve um problema real: facilitar a conexão entre escolas públicas e agricultores familiares, garantindo o cumprimento da Lei 11.947/2009 (PNAE) que exige que 30% do orçamento da merenda escolar seja destinado à compra de produtos da agricultura familiar local.
 
 ### Principais Funcionalidades
 
