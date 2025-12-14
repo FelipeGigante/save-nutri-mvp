@@ -151,16 +151,6 @@ GET /match/calculate?school_id=school_001&raio_km=15
 }
 ```
 
-## 🧠 Lógica do "Mock Inteligente"
-
-O sistema utiliza dados do OpenStreetMap, que não contém informações de negócio. Durante o startup, a API:
-
-1. **Identifica** quem é escola (`amenity=school`) e produtor (`landuse=farmland`, etc)
-2. **Injeta dados fictícios realistas**:
-   - **Escolas**: orçamento mensal (R$ 15k-50k), número de alunos (200-800), produto demandado
-   - **Agricultores**: produtos cultivados (2-5 produtos da safra local), DAP (90% possuem), frete zero
-3. **Armazena** em memória para acesso rápido
-
 ### Cálculo de Economia
 
 ```
