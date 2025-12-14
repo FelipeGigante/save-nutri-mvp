@@ -1,4 +1,4 @@
-# 🌾 EcoMerenda - Backend API
+# 🌾 SaveNutri 
 
 > Plataforma SaaS B2G que conecta Escolas Públicas a Agricultores Familiares locais para cumprir a lei do PNAE (30% da merenda escolar deve ser de origem local)
 
